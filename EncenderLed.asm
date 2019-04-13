@@ -1,9 +1,13 @@
 ;*******************************************************************
 ;*UNIVERSIDAD NACIONAL DE COLOMBIA SEDE BOGOTÁ
-;*09 DE ABRIL DE 2019 
-;*AUTOR: LEONARDO FABIO MERCADO BENITEZ
-;*DESCRIPCION: HOLA MUNDO CON LED Y PULSADO
-;*DOCUMENTACION: DATASHEET GQ8 CAP 2 
+;
+;*12 DE ABRIL DE 2019
+; 
+;*AUTOR: MARIA ALEJANDRA ARIAS TORRES; LEONARDO FABIO MERCADO BENITEZ
+;
+;*DESCRIPCION: HOLA MUNDO CON LED Y PULSADO: MODIFICANDO PUERTOS DE ENTRADA Y SALIDA
+;
+;*DOCUMENTACION: DATASHEET GQ8 
 ;*******************************************************************
 
 ; Include derivative-specific definitions
@@ -29,25 +33,24 @@ main:
 _Startup:
             LDHX   #__SEG_END_SSTACK ; initialize the stack pointer
             TXS
-            mov	   #$fe,PTADD   ;PUERTO A|BIT 0  COMO INPUT Y TODOS LOS DEMAS COMO OUTPUT
-            lda	   #$01			;CARGA HEX 01 EN EL ACULUMADOR (pone en alto el bit menos significativo)
+            mov	   #$fb,PTADD   ;PUERTO A| BIT 2  COMO INPUT
+            lda	   #$04			;CARGA HEX 04 EN EL ACULUMADOR
             					;7 6 5 4 3 2 1 0
-            					;0 0 0 0 0 0 0 1
-            sta    PTAPE 		;ALMACENA LO QUE HAY EN EL ACUMULADOR EN EL PUERTO A, HABILITANDO PULL.UP EN PIN 0 DE PTA
-            mov    #$04,PTBDD	;PUERTO B|BIT 2  COMO INPUT Y TODOS LOS DEMAS COMO OUTPUT
-            mov    #$04,PTBD	;BIT 2 DEL PUERTO B EN HIGHT
+            					;0 0 0 0 0 1 0 0
+            sta    PTAPE 		;SETEA PULL UP EN EL PUERTO A BIT 2
+            mov    #$02,PTBDD	;PUERTO B   BIT 1  COMO OUTPUT
+            mov    #$02,PTBD	;BIT 1 DEL PUERTO B EN HIGHT
                         
 			
 
 mainLoop:
             
-            brclr  0,PTAD,boton ;PREGUNTA SI EL BIT 0 DEL PUERTO A ESTA EN BAJO, SI EVALUA A VERDAD PASA A LA RUTINA BOTON
+            brclr  2,PTAD,boton ;PREGUNTA SI EL BIT 2 DEL PUERTO A ESTA EN BAJO, SI EVALUA A VERDAD PASA A LA RUTINA BOTON
             mov    #$02,PTBD	;BIT 2 DEL PUERTO B EN HIGHT
             feed_watchdog
             BRA    mainLoop		;RETORNA A LA RUTINA MAINLOOP
             
 boton: 		
-			mov    #$00,PTBD	;MANDA LOW A TODOS LOS BITS DEL PUERTO B
+			mov    #$00,PTBD	;BIT 2 DEL PUERTO B EN LOW (DE HECHO TODOS LOS BITS DEL PUERTO B SE APAGAN) 
 			bra    mainLoop 	;RETORNA A LA RUTINA MAINLOOP
-
 
