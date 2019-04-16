@@ -1,63 +1,52 @@
-;********************************************************************************************
-;* UNIVERSIDAD NACIONAL DE COLOMBIA SEDE BOGOT¡ - DEP MEC¡NICA Y MECATR”NICA.
-;********************************************************************************************
-;*
-;* Title: CÛdigo para la implementaciÛn del laboratorÌo #2 de microcontroladores Unal 2019-I
-;*
-;* Author: Maria Alejandra Arias Torres, Leonardo Fabio Mercado BenÌtez.
-;*
-;* Description: Se implementa el cÛdigo enviado y se verifica el funcionamiento linea a linea
-;*
-;* Documentation: GuÌa GQ8 Cap 7
-;*
-;* Include Files: Ninguno
-;*
-;* Revision History:
-;
-;* Rev #      Date           Who             Comments
-;* ----- ------------ ------------------- --------------------------------------------
-;* 1.0    15-Apr-2019 Leonardo M. BenÌtez  Se examina cada linea del cÛdigo y se comenta su acciÛn sobre los registros
-;********************************************************************************************
+;****************************************************************************
+;*UNIVERSIDAD NACIONAL DE COLOMBIA - FACULTAD DE INGENIER√çA - SEDE BOGOT√Å   *
+;****************************************************************************
+;*Departamento de Ingenier√≠a Mec√°nica y Mecatr√≥noca  -  Microcontroladores  *
+;*Primer Semestre 2019                                                      *
+;****************************************************************************
+;*Fecha: 15/04/2019                                                         *
+;*                                                                          *
+;*Autores: Alejandra Arias Torres                                           *
+;*         Leonardo Fabio Mercado                                           *
+;*                                                                          *
+;*Descripci√≥n:  Uso de retardos                                             *
+;*                                                                          *
+;*Documentaci√≥n:  Hoja de datos para MCU QG8 NXP                            *
+;*                                                                          *
+;*Archivos Adicionales:                                                     *
+;*                                                                          *
+;*Versi√≥n 1.0 realizada en CodeWarrior (Eclipse) V11                        *
+;****************************************************************************
 
 ; Include derivative-specific definitions
             INCLUDE 'derivative.inc'
-            
+;           INCLUDE 'macros.inc' 
 
 ; export symbols
             XDEF _Startup, main
             ; we export both '_Startup' and 'main' as symbols. Either can
             ; be referenced in the linker .prm file or from C/C++ later on
-            
-            
-            
+                                    
             XREF __SEG_END_SSTACK   ; symbol defined by the linker for the end of the stack
 
-
 ; variable/data section
-MY_ZEROPAGE: SECTION  SHORT         ; Insert here your data definition
+MY_ZEROPAGE: SECTION  SHORT         ; Secci√≥n para definici√≥n de variables en la RAM, p√°gina cero
 
 ; code section
-MyCode:     SECTION
+MyCode:      SECTION
 main:
 _Startup:
-            LDHX   #__SEG_END_SSTACK ; Se cargan los registros indices H y X con el numero que se
-            						 ; encuentre en __SEG_END_SSTACK  H = 0X01 y X = 0X40
-            TXS						 ; Transfiere lo que haya en (H:X-1) al STACK 
-			lda    #$02				 ; Carga el acumulador A con un 2
-			sta    SOPT1             ;Almacena lo que hay en el acumulador en 0x1802
-
+            LDHX  #__SEG_END_SSTACK ; cargar la direcci√≥n del final del stack a H:X
+            TXS                     ; SP apunta a H:X-1 (inicializar SP)
+            lda   #$02              ; cargar hex 02 en acumulador
+            sta   SOPT1             ; activar background debug mode
 mainLoop:
-            
-            lda    #$ff      		 ;Carga el Acumulador A con Hex FF y modifica el CCR de 0x68 a 0x6c
-
-rt1: 
-			psha					 ;Resta en 1 lo que halla en el STACK
-			lda    #$ff
-
-rt2: 		
-			dbnza  rt2				 ;Decrementa el Acumulador en 1, hasta que sea 0 y salta a la rutina
-			pula					 ;Lo que halla en la pila le suma 1 y el acumulador lo manda a 0xfd
-			dbnza  rt1				 ;Incrementa la pila en 1 
-			BRA  mainLoop
-
-
+            lda   #$ff              ; cargar hex FF en acumulador
+rt1:
+            psha                    ; guardar acumulador en el stack
+            lda   #$ff              ; cargar hex FF en acumulador
+rt2:
+            dbnza rt2               ; decrementar acumulador, branch a rt2 si acumulador != 0
+            pula                    ; Almacenar en el acumulador el dato tomado del stack
+            dbnza rt1               ; decrementar acumulador, branch a rt1 si acumulador != 0
+            bra   mainLoop          ; branch a mainLoop
