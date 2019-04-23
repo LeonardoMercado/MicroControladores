@@ -15,7 +15,9 @@
 ;* Revision History:
 ;
 ;* Rev #      Date           Who             Comments
-;* ----- ------------ ------------------- --------------------------------------------
+;* ----- ------------ ------------------- ---------------------------------------------------
+;* 1.1   23-Apr-2019 Maria A. Leonardo    Se implementa modificaciones  al código y queda 
+;*										  disponible para su primera prueba de funcionamiento.
 ;* 1.0   23-Apr-2019 Leonardo M. Benítez  Se implementa el código básico para encender un led
 ;********************************************************************************************
 
@@ -48,18 +50,31 @@ _Startup:
             					;0 0 0 0 0 1 1 1
             sta    PTAPE 		;SETEA PULL UP EN EL PUERTO A BIT 0,1,2
             mov    #$0e,PTBDD	;PUERTO B| BIT 1,2,3  COMO OUTPUT
-            mov    #$f1,PTBD	;PUERTO B| BIT 1,2,3  EN LOW                        
+            mov    #$0e,PTBD	;PUERTO B| BIT 1,2,3  EN HIGHT                      
 			
 
 mainLoop:
             
-            brclr  2,PTAD,boton ;PREGUNTA SI EL BIT 2 DEL PUERTO A ESTA EN BAJO, SI EVALUA A VERDAD PASA A LA RUTINA BOTON
-            mov    #$02,PTBD	;BIT 2 DEL PUERTO B EN HIGHT
+            brclr  0,PTAD,boton0 ;PREGUNTA SI EL BIT 0 DEL PUERTO A ESTA EN BAJO, SI EVALUA A VERDAD PASA A LA RUTINA BOTON0
+            brclr  1,PTAD,boton1 ;PREGUNTA SI EL BIT 1 DEL PUERTO A ESTA EN BAJO, SI EVALUA A VERDAD PASA A LA RUTINA BOTON1
+            brclr  2,PTAD,boton2 ;PREGUNTA SI EL BIT 2 DEL PUERTO A ESTA EN BAJO, SI EVALUA A VERDAD PASA A LA RUTINA BOTON2
             feed_watchdog
             BRA    mainLoop		;RETORNA A LA RUTINA MAINLOOP
             
-boton: 		
-			mov    #$00,PTBD	;BIT 2 DEL PUERTO B EN LOW (DE HECHO TODOS LOS BITS DEL PUERTO B SE APAGAN) 
+boton0: 	
+			lda    PTBD
+			eor    #%00000010		
+			sta    PTBD			 
+			bra    mainLoop 	;RETORNA A LA RUTINA MAINLOOP
+boton1: 	
+			lda    PTBD
+			eor    #%00000100		
+			sta    PTBD			 
+			bra    mainLoop 	;RETORNA A LA RUTINA MAINLOOP
+boton2: 	
+			lda    PTBD
+			eor    #%00001000		
+			sta    PTBD			 
 			bra    mainLoop 	;RETORNA A LA RUTINA MAINLOOP
 
 
