@@ -26,7 +26,7 @@ MY_ZEROPAGE: SECTION  SHORT         ; Insert here your data definition
 var:   ds.b   1
   
 ROM_VAR:     SECTION
-limite:   dc.b  62
+limite:   dc.b  62                  ;variable para contar interrupciones f=31.002/62=0.5Hz   T=2*(1/f)=4s
 ; code section
 MyCode:     SECTION
 main:
@@ -37,36 +37,36 @@ _Startup:
             lda    #$02               ; cargar hex 02 en acumulador
             sta    SOPT1              ; desactivar watchdog
             lda    #%00000100
-			sta    ICSC1
-			lda    #%11000000
-			sta    ICSC2		
-			CLI	   ;enable interrupts
+			sta    ICSC1              ;Fuente de reloj interno f=31.25kHz (RDIV=1)
+			lda    #%11000000  
+			sta    ICSC2		      ;Divisor de freq bus 31.25*512/8*2=1000kHz
+			CLI	   ;enable interrupts 
 			mov    #$01,PTBDD         ; puerto B bit0 como salida
 			mov    #$01,PTBD          ; puerto B bit0 en 1
 mtim_cfg:
-			lda    #%00001000
+			lda    #%00001000         ; bit 5=0 frecuencia de bus de bus , PS=1000  divisor 256 f=3906.25
 			sta    MTIMCLK
 			lda    #$7e
-			sta    MTIMMOD
+			sta    MTIMMOD            ; contador en 126 f=3906.25/126=31.002 Hz 
 			lda    #%01100000
-			sta    MTIMSC
+			sta    MTIMSC             ; enable MTIM interrupt (bit 6), Counter reset (bit 5)
 
 mainLoop:   ; Insert your code here
             NOP 
             WAIT
-            inc    var
-            lda    limite            
-            cbeq   var,led_toggle    
+            inc    var               ;incrementar el contador de interrupciones
+            lda    limite            ;comparar con el límite de interrupciones
+            cbeq   var,led_toggle    ;cambiar estado de led si var llega al límite
             BRA    mainLoop
 
 led_toggle:
             lda    #$00
-            sta    var
+            sta    var               ; reiniciar conteo de interrupciones
             lda    PTBD
-            eor    #$01
+            eor    #$01              ;cambiar estado del led
             sta    PTBD
             BRA    mainLoop
 
 MTIM_ISR:
-            bset     5,MTIMSC
+            bset   5,MTIMSC        ; reiniciar el contador del MTIM
             rti
