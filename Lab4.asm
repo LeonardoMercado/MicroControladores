@@ -167,6 +167,7 @@ act_piso:   ;actualizar piso actual
              
                            
 retardo:        
+<<<<<<< HEAD
             lda   #$10         ; cargar hex 16 en acumulador  [IMM]
             sta   cont1             ; cont1=16(dec) (1 segundo)  [DIR]  
 rt3:        
@@ -174,6 +175,15 @@ rt3:
 rt1:
             psha                    ; guardar acumulador en el stack  [INH]  (2 ciclos)*rt1(256)
             lda   #$ff ;#$02   ; cargar hex ff en acumulador     [IMM]  (2 ciclos)*rt1(256)
+=======
+            lda   #$02;#$10         ; cargar hex 16 en acumulador  [IMM]
+            sta   cont1             ; cont1=16(dec) (1 segundo)  [DIR]  
+rt3:        
+            lda   #$02;#$ff         ; cargar hex FF en acumulador     [IMM]  (2 ciclos)*rt3(16)                   
+rt1:
+            psha                    ; guardar acumulador en el stack  [INH]  (2 ciclos)*rt1(256)
+            lda   #$02;#$ff ;#$02   ; cargar hex ff en acumulador     [IMM]  (2 ciclos)*rt1(256)
+>>>>>>> 7108f6262bc8339020eaf400b2833aeb011704a0
 rt2:
             dbnza rt2               ; decrementar acum, branch a rt2 si acum!= 0    [INH]  (4 ciclos)*rt2(256)
             pula                    ; tomar del stack y asignar al acumulador       [INH]  (3 ciclos)*rt1(256)
