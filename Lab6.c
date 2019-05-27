@@ -30,12 +30,11 @@
 #define	anodo2	PTBD_PTBD3		 
 #define	anodo3	PTCD_PTCD0		
 #define	anodo4  PTCD_PTCD1
-#define	dato	PTAD
+#define	dato	PTAD             // dato para enviar al display
 
 //variables en RAM
-unsigned int contRet;            //Retardo anodos    
+unsigned int contRet;            //Contador para retardo en los anodos    
 unsigned char dig1,dig2,dig3,dig4;
-unsigned char contar;            // bandera para permitir conteo
 volatile unsigned int tiempo;    // variable para conteo de tiempo
 
 //variables en ROM
@@ -46,7 +45,7 @@ const unsigned short tRet=10;		//tiempo de retardo anodos
 //Prototipos de funciones
 void digitos (unsigned int ); //Función para actualizar el valor de los dígitos a mostrar en el display
 void display(void);			  //Función para alternar los ánodos en el display
-void retardo(unsigned short); //retardo para definir la frecuencia para el cambio de los ánodos
+void retardo(unsigned short); //Retardo para definir la frecuencia para el cambio de los ánodos
 
 void irq_init() {
 	IRQSC_IRQEDG = 0;				// activa con flanco de bajada
@@ -58,8 +57,8 @@ void irq_init() {
 void kbi_init() {
 	KBI2PE_KBIPE0=1;                // habilitar pin para interrupción kbi
 	KBI2PE_KBIPE1=1;
-	//PTDPE_PTDPE0 = 1;				// habilitar resistencias pull-up o pull-down
-	//PTDPE_PTDPE0 = 1;
+	PTDPE_PTDPE0 = 1;				// habilitar resistencias pull-up o pull-down
+	PTDPE_PTDPE1 = 1;
 	KBI2ES_KBEDG0=0;                // resistencia pull-up y flanco de bajada
 	KBI2ES_KBEDG1=0;
 	KBI2SC_KBIMOD=0;                // detección unicamente de flancos
@@ -67,8 +66,8 @@ void kbi_init() {
 	KBI2SC_KBACK=1;                 // evitar falsas interrupciones la iniciar
 }
 
-void rti_init(){
-	RTCSC=0b00011011;              //RTCLKS = 00 clock de 1khz  (LPO) Bit 5 y 6 RTCSC
+void rtc_init(){
+	RTCSC=0b00010000;              //RTCLKS = 00 clock de 1khz  (LPO) Bit 5 y 6 RTCSC
 	                               //RTIE=1 = activar interrupción por RTI
 	                               //RTCPS  = preescaler a 10ms	
 	RTCMOD=0;                      //Valor de desborde del contador
@@ -77,31 +76,41 @@ void rti_init(){
 interrupt VectorNumber_Virq void irq_isr() { //reset
 	IRQSC_IRQACK = 1;				//acknowledge para la interrupcion
 	tiempo=0;
-	contar=0;
 }
 
 interrupt VectorNumber_Vkeyboard void kbi_isr(){
 	KBI2SC_KBACK = 1;               //acknowledge 
-	if (PTDPE_PTDPE0 ==0 ){ // stop
-	    contar=0;
-	}else if(PTDPE_PTDPE1==0){ //play
-		contar=1;
+	if (PTDD_PTDD0 ==0 ){           //stop
+		RTCSC=0b00010000; 
+	}else if(PTDD_PTDD1==0){        //play
+		RTCSC=0b00011011; 
+		if(tiempo==limTmp){   // reiniciar conteo si se llegó al límite
+			tiempo=0;
+		}
 	}
 }
 
-interrupt VectorNumber_Vrtc void rtc_isr(){
-	RTCSC_RTIF=1;                 //acknowledge interrupt request
-    if(contar==1){
-    	tiempo++;
-    	if(tiempo>limTmp){
-    		tiempo=0;
-        }
-    }    
+interrupt VectorNumber_Vrtc void rtc_isr(){	               
+	RTCSC_RTIF=1;           //acknowledge interrupt request
+	if (tiempo<limTmp){    //sumar solo si tiempo no ha llegado al límite
+		tiempo++;
+	}
 }
 
 void main(void) {
-    tiempo=0;
-		
+	SOPT1 = 0x02;					//deshabilitar el watchdog
+    tiempo=0;                       //iniciar contador de tiempo   
+	SOPT1 = 0x02;					//deshabilitar el watchdog
+	PTADD = 0x0f;					//configuracion de pines para manejo del display 7 segmentos
+	PTBDD_PTBDD2 = 1;				//configurar pines como salida
+	PTBDD_PTBDD3 = 1;				
+	PTCDD_PTCDD0 = 1;				
+	PTCDD_PTCDD1 = 1;				
+	irq_init();						//inicializar interrupciones
+	kbi_init();	
+	rtc_init();
+	EnableInterrupts;				 //Habilitar interrupciones CLI en assembler (Clear Interrupt Mask Bit)
+	
   /* include your code here */
   for(;;) {
 	digitos(tiempo);            //separar datos de tiempo en unidades decenas decimas y centesimas de s
@@ -109,17 +118,19 @@ void main(void) {
   } /* loop forever */  
 }
 
+//Función para actualizar el valor de los dígitos a mostrar en el display
 void digitos (unsigned int var){ /*VERIFICAR ORDEN EN DISPLAY*/
-	dig1=var%10;                //centesimas de s
-	dig2=var/10%10;             //decimas de s
-	dig3=var/100%10;            //unidades
-	dig4=var/1000;              //decenas
+	dig4=var%10;                //centesimas de s
+	dig3=var/10%10;             //decimas de s
+	dig2=var/100%10;            //unidades
+	dig1=var/1000;              //decenas
 };
 
+//Función para alternar los ánodos en el display
 void display() {
 	dato = dig1;				//cargar numero del digito 1 en PTA
 	anodo1 = 1;					//encender el digito 1 con el anodo 1
-	retardo(tRet);				//llamar funcion retardo pasandole valor time para uso en ciclo for
+	retardo(tRet);				//llamar funcion retardo 
 	anodo1 = 0;					//apagar el digito 1 para pasar al siguiente
 	dato = dig2;
 	anodo2 = 1;
@@ -135,9 +146,11 @@ void display() {
 	anodo4 = 0;
 }
 
+//Retardo para definir la frecuencia para el cambio de los ánodos
 void retardo(unsigned short max) {
-	for (contRet = 0; contRet < max; ++contRet) {//funcion recibe un parametro "max" utilizado para el ciclo for
+	for (contRet = 0; contRet < max; ++contRet) {
 		asm nop;  
+		 
 	}
 }
 
