@@ -1,3 +1,30 @@
+//;****************************************************************************
+//;*UNIVERSIDAD NACIONAL DE COLOMBIA - FACULTAD DE INGENIERÍA - SEDE BOGOTÁ   *
+//;****************************************************************************
+//;*Departamento de Ingeniería Mecánica y Mecatrónoca  -  Microcontroladores  *
+//;*Primer Semestre 2019                                                      *
+//;****************************************************************************
+//;*Fecha: 28/05/2019                                                         *
+//;*                                                                          *
+//;*Autores: Alejandra Arias Torres                                           *
+//;*         Leonardo Fabio Mercado                                           *
+//;*         Daniel Diaz Coy                                                  *
+//;*         Marco Andres Lopez                                               *
+//;*                                                                          *
+//;*Descripción:  IHM para el laboratorio #7                                  *
+//;*                                                                          *
+//;*Documentación:  Informe laboratorio #7                                    *
+//;*                                                                          *
+//;*Archivos Adicionales:                                                     *
+//**Repositorio:https://github.com/LeonardoMercado/MicroControladores/tree/   *
+//master/Laboratorio7                                                         *
+//;*                                                                          *
+//;*Versión 1.0 Se implementa el mockup diseñado                              *
+//;*Versión 1.1 Se ajusta para las acciones y datos                           *
+//;****************************************************************************
+
+
+
 import processing.serial.*; //Importamos la libreria Serial y sus métodos
 import controlP5.*;         //Importamos la libreria ControlP5 y sus métodos de inputText
 
@@ -5,25 +32,29 @@ import controlP5.*;         //Importamos la libreria ControlP5 y sus métodos de
 Serial puerto;              //Objeto de tipo Serial.
 ControlP5 control5;         //Objeto de tipo ControlP5
 String conectado = "OFF";   //Flag de conexión
-boolean statepuerto = false;
-String top = "00";
-String down = "00";
+boolean statepuerto = false; //Estado del puerto COM a conectar
+String top = "00";          //Inicializador del cronometro a mostrar
+String down = "00";          //Inicializador del cronometro a mostrar
+int[] entrada = new int[2];  //Arreglo de los valores de entrada introducidos a la interfaz para
+                             // fijar el cronometro cuando se le de STOP en el mic
+int contador = 0;            //Contador de cantidad de valores introducidos al tiempo a la interfaz
+
 
 
 void setup(){
-  size(1000,600);
-  control5 = new ControlP5(this);
+  size(1000,600);              
+  control5 = new ControlP5(this);    //Instanciación del objeto control
   
-  control5.addTextfield("TOP").setPosition(112,470).setSize(60,60).setFont(createFont("TraditionalArabic",26));
-  control5.addTextfield("DOWN").setPosition(190,470).setSize(60,60).setFont(createFont("TraditionalArabic",26));
-  control5.addBang("ENVIAR").setPosition(314,470).setSize(100,60).setFont(createFont("TraditionalArabic",30));
+  control5.addTextfield("TOP").setPosition(112,470).setSize(60,60).setFont(createFont("TraditionalArabic",26));  //Cuadro de texto Top para introducir datos
+  control5.addTextfield("DOWN").setPosition(190,470).setSize(60,60).setFont(createFont("TraditionalArabic",26)); //Cuadro de texto Down para introducir datos
+  control5.addBang("ENVIAR").setPosition(314,470).setSize(100,60).setFont(createFont("TraditionalArabic",30));   //Boton de Enviar la información almacenada en TOP y DOWN
   
   
 }
 
 void draw(){
   
-  background(0);
+  background(0); //Fondo negro cada ciclo
 
   
   //_________________________________________________________________________
@@ -39,7 +70,7 @@ void draw(){
   fill(255,255,255);
   textSize(14);
   textAlign(CENTER, TOP);
-  text("Leonardo M. Benítez, Maria A. Arias, Daniel Diaz Coy.",500,85);
+  text("Leonardo M. Benítez, Maria A. Arias, Daniel Diaz Coy, Marco Andres Lopez.",500,85);
   stroke(231,220,12);
   strokeWeight(2);
   //_________________________________________________________________________
@@ -89,21 +120,19 @@ void draw(){
   fill(0,0,0);
   text("LED AZUL",811,340);
 
-  
+  //_________________________________________________________________________
+  //VISUALIZACIONES VARIABLES EN TIEMPO 
   //---CLOCK
   fill(255,255,255);
   textSize(130);
   text(top,580,420);
   text(":",680,420);
-  text(down,780,420);
-
-
-  
+  text(down,780,420); 
   //_________________________________________________________________________
   
 }
-
-void mousePressed(){   
+  
+void mousePressed(){   //FUNCION QUE DOMINA LAS ACCIONES DE LOS BOTONES
   
   //_________________________________________________________________________
   //ACCIONES
@@ -128,6 +157,8 @@ void mousePressed(){
   statepuerto = !statepuerto;
   println("Puerto COM, desconectado");
   conectado = "OFF";
+  top = "00";
+  down = "00";
   }
   
   
@@ -136,7 +167,7 @@ void mousePressed(){
   fill(255,0,0,255);
   rect(157,300,90,90,3);
   puerto.clear();
-  puerto.write('1');
+  puerto.write('1');          //Se envia el 1 en ASCII para alternar estado del led ROJO
   }
   
   
@@ -145,7 +176,7 @@ void mousePressed(){
   fill(0,255,0,255);
   rect(455,300,90,90,3);
   puerto.clear();
-  puerto.write('3');
+  puerto.write('3');          //Se envia el 3 en ASCII para alternar estado del led Verde
   }
   
   
@@ -154,41 +185,39 @@ void mousePressed(){
   fill(0,0,255,10);
   rect(766,300,90,90,3);
   puerto.clear();
-  puerto.write('2');
+  puerto.write('2');          //Se envia el 2 en ASCII para alternar estado del led AZUL
   }
-  
-  
-
-  
-  //---ENVIAR
-  
-
-  
   //_________________________________________________________________________
+  
 }
+void ENVIAR(){ //FUNCION QUE DOMINA EL ENVIO DE DATOS PARA EL CRONOMETRO
+  top = control5.get(Textfield.class,"TOP").getText(); //captura del valor en TOP en formato String
+  down = control5.get(Textfield.class,"DOWN").getText(); //Captura del valor en Down con formato String
+  byte[] byteTop = top.getBytes();                       //Castin a byte del valor en TOP
+  byte[] byteDown = down.getBytes();                     //Castin a byte del valor en DOWN
+  byte[] cronometro = concat(byteTop, byteDown);         //Concatenación del valor deseado para el Cronometro
 
-void ENVIAR(){
-  top = control5.get(Textfield.class,"TOP").getText();
-  down = control5.get(Textfield.class,"DOWN").getText();
-  
-
-  byte[] byteTop = top.getBytes();
-  byte[] byteDown = down.getBytes();
-  byte[] cronometro = concat(byteTop, byteDown);
-  
-  println(cronometro);
-  for(int i = 0; i < 4; i++){
-    puerto.clear();
-    puerto.write(cronometro[i]);
-    delay(1);
-    puerto.clear();
-  }
-  
-  
-  fill(255,255,255);
+  for(int i = 0; i < 4; i++){ 
+    puerto.write(cronometro[i]);                        //Envio de cada valor almacenado en cronometro
+  }  
+  fill(255,255,255);                                    //Actualización del valor del cronometro dentro de la interfaz
   textSize(130);
   text(top,580,420);
   text(":",680,420);
   text(down,780,420);
-    
+  contador = 0;                                          //Control de cantidad de datos que ingresan para actualizar el valor del cronometro en la interfaz
 }
+
+//_________________________________________________________________________
+//RECEPCIÓN DE DATOS PARA CRONOMETRO.
+void serialEvent(Serial puerto) { 
+  if(puerto.available()>0 & contador<2){
+   entrada[contador]  = puerto.read();
+   contador++;
+   println(entrada);
+  }
+  top = Integer.toString(entrada[0]);
+  down = Integer.toString(entrada[1]);
+} 
+
+//_________________________________________________________________________
