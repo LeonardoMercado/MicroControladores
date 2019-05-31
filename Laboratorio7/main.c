@@ -1,19 +1,27 @@
-//    LABORATORIO 6
-
-/***************************************************************************
-*  UNIVERSIDAD NACIONAL DE COLOMBIA - FACULTAD DE INGENIERIA- Sede Bogotá *
-***************************************************************************
-*  Departamento de Ing.Mecanica y Mecatronica - Microcontroladores - Lab6 *
-***************************************************************************
-*Autor: Daniel Fernando Diaz Coy                                          *
-*                                                                         *
-*Descripcion: Introducción al uso de C, Manejo del Modulo RTC             *
-*                                                                         *
-*Documentacion: -Hoja de datos para el uC MC9S08QE16                      *
-*                                                                         *
-*Fecha de Entrega: 2019-05-22                                             *
-*                                                                         *
-***************************************************************************
+// LABORATORIO 7
+//
+/*
+;****************************************************************************
+;*UNIVERSIDAD NACIONAL DE COLOMBIA - FACULTAD DE INGENIERÍA - SEDE BOGOTÁ   *
+;****************************************************************************
+;*Departamento de Ingeniería Mecánica y Mecatrónica  -  Microcontroladores  *
+;*Primer Semestre 2019                                                      *
+;****************************************************************************
+;*Fecha: 28/05/2019                                                         *
+;*                                                                          *
+;*Autores: Alejandra Arias Torres                                           *
+;*         Leonardo Fabio Mercado                                           *
+;*         Daniel Diaz Coy                                                  *
+;*         Marco Andres Lopez                                               *                                         
+;*                                                                          *
+;*Descripción: Comunicación Serial con interfaz gráfica                     *
+;*                                                                          *
+;*Documentación:Hoja de datos QE16                                          *
+;*                                                                          *
+;*Archivos Adicionales:                                                     *
+;*                                                                          *
+;*Versión 1.0 realizada en CodeWarrior (Eclipse) V11                        *
+;****************************************************************************
 */
 
 #include <hidef.h> /* for EnableInterrupts macro */
@@ -24,14 +32,19 @@
 #define anodo3	PTBD_PTBD2			// el ensamble en la protoboard, desde esta definicion se pueden ubicar
 #define anodo4	PTBD_PTBD3			// en otro puerto distinto
 
-#define	LedR	PTCD_PTCD0	 // Led RGB (PTC0-PTC2) (15,19,20)
+#define	LedR	PTCD_PTCD0	 		// Parametros del Led RGB (PTC0-PTC2) (15,19,20)
 #define	LedG	PTCD_PTCD1		 
 #define	LedB	PTCD_PTCD2	
+
+#define	datoDisplay		PTAD		// dato para enviar al display (PTA0-PTA3) (32-35)
+#define	bufferSCI		SCI2D		// Buffer de datos del SCI
 
 //variables en RAM
 
 unsigned char centima, decima, segundo, dsegundo;	//Variables usadas para el numero visto en el display
-unsigned int contador;									//Contador general para el reloj
+unsigned char cronometro;							//Determina si el cronometro es ascendente (1) o descendente (0)
+unsigned char bandera;								//Permite detener el cronometro con ambos botones 
+unsigned int display;								//Contador general para el reloj, Valor siempre presente en el display
 
 //Constantes en ROM 
 
@@ -39,7 +52,7 @@ unsigned const time=10;				//Constante en ROM que determina el numero de ciclos 
 
 //Prototipos de funciones
 
-void display(void);						//prototipos de las funciones para que el compilador
+void setDisplay(unsigned int);						//prototipos de las funciones para que el compilador
 void retardo(unsigned short);			//entienda el nombre y los parametros que reciben/retornan 
 
 void setPrograma()					// Inicializacion del Programa
@@ -59,8 +72,10 @@ void setPrograma()					// Inicializacion del Programa
 	segundo = 0;					// el año actual (2019) para ser visualizado
 	decima = 1;						// como prueba de que el boton reset esta funcionando correctamente
 	centima = 9;					//
-			
-	contador=0;
+	
+	cronometro=1;
+	bandera=0;
+	display=2019;
 
 	EnableInterrupts;				//Macro para habilitar interrupciones
 }
@@ -79,12 +94,10 @@ interrupt VectorNumber_Virq void IRQ_ISR() 	//referencia de la interrupcion
 {  
 	IRQSC_IRQACK = 1;			// acknowledge para la interrupcion
 	RTCSC_RTCPS = 0;			// Detiene el modulo RTC
-	
-	LedB=!LedB;
-	centima = 0;				// Resetea los digitos del display
-	decima = 0;					//
-	segundo = 0;				//
-	dsegundo = 0;				//
+	cronometro=1;				// Establece el cronometro en Ascendente
+	bandera=0;					// Permite detener el cronometro
+	LedB=!LedB;					// Enciende/Apaga el led azul
+	display = 0;				// Resetea los digitos del display
 }
 
 //inicializa el modulo KBI
@@ -108,15 +121,33 @@ interrupt VectorNumber_Vkeyboard void KBI_ISR()
 {
 	KBI2SC_KBACK = 1;			// Limpia la bandera de Interrupción
 	
-	if(PTDD_PTDD7==0)			// Si detecta un flanco negativo en el boton "stop"
+	if(PTDD_PTDD6==0)			// Si detecta un flanco negativo en el boton "Descendente"
 	{
-		RTCSC_RTCPS = 0;		// Desactiva el modulo RTC haciendo el Preescalado = 0
-		LedR=!LedR;
+		if(bandera&display>0)
+		{
+			cronometro=0;			// Establece el cronometro en Descendente
+			RTCSC_RTCPS = 11;		// Desactiva el modulo RTC haciendo el Preescalado = 0
+		}
+		else
+		{
+			RTCSC_RTCPS = 0;		// Detiene el cronometro
+		}
+		bandera=!bandera;
+		LedR=!LedR;				// Enciende/Apaga el led rojo
 	}
-	if(PTDD_PTDD6==0)			// Si detecta un flanco negativo en el boton "start"
+	if(PTDD_PTDD7==0)			// Si detecta un flanco negativo en el boton "Ascendente"
 	{
-		LedG=!LedG;
-		RTCSC_RTCPS = 11;		// Activa el modulo RTC haciendo el Preescalado = 11 (10ms por ejecucion)
+		if(bandera&display<9999)
+		{
+			cronometro=1;			// Establece el cronometro en Ascendente
+			RTCSC_RTCPS = 11;		// Desactiva el modulo RTC haciendo el Preescalado = 0
+		}
+		else
+		{
+			RTCSC_RTCPS = 0;		// Detiene el cronometro
+		}
+		bandera=!bandera;
+		LedG=!LedG;				// Enciende/Apaga el led verde
 	}
 }
 
@@ -133,31 +164,20 @@ interrupt VectorNumber_Vrtc void RTC_ISR()
 {
 	RTCSC_RTIF = 0;				// Limpia la bandera de la interrupcion
 	RTCSC_RTCPS = 11;			// Vuelve a llamar la interrupcion al variar el preescale en 10ms
-	if(dsegundo < 6)			// Comparacion principal, limita que el cronometro llegue a 60 segundos
-	{
-		centima++;				// Incrementa centima
-		if(centima%10==0)		// si centima es multiplo de 10, incrementa el digito siguiente
-		{
-			centima=0;
-			decima++;
-			if(decima%10==0) 
-			{
-				decima=0;
-				segundo++;
-				if(segundo%10==0)
-				{
-					segundo=0;
-					dsegundo++;
-				}
-			}
-		}
-	}
-	if(dsegundo==6)				
-	{
-		RTCSC_RTCPS = 0;		// Detiene el cronometro al llegar a 60 segundos
-	}
 	
-	//PPP++;
+	if(cronometro)
+	{
+		display++;
+	}
+	else
+	{
+		display--;
+	}
+		
+	if(display==0|display==9999)				
+	{
+		RTCSC_RTCPS = 0;		// Detiene el cronometro al llegar a los limites del displau
+	}
 }
 
 void main(void) 
@@ -169,47 +189,37 @@ void main(void)
 	
 	for (;;) 
 	{
-		display();					//llamar a display constantemente
+		setDisplay(display);					//llamar a display constantemente
 	} /* loop forever */
 	/* please make sure that you never leave main */
 }
 
 //******************* Subrutinas de Ejecucion ******************
 
-//subrutina de conteo
-void conteo(char estado)
-{
-	if(estado)
-	{
-		contador++;
-	}
-	else
-	{
-		contador--;
-	}
-}
-
 //metodo para el display 7 segmentos
-void display() 					// Reciclado del Ejemplo
+void setDisplay(unsigned int var) 					// Reciclado del Ejemplo
 {
-	static a;
-	PTAD = dsegundo;			//cargar numero del digito 1 en PTA
+	centima=var%10;                //centesimas de s
+	decima=var/10%10;             //decimas de s
+	segundo=var/100%10;            //unidades
+	dsegundo=var/1000;              //decenas
+	
+	datoDisplay = dsegundo;			//cargar numero del digito 1 en PTA
 	anodo1 = 1;					//encender el digito 1 con el anodo 1
 	retardo(time);				//llamar funcion retardo pasandole valor time para uso en ciclo for
 	anodo1 = 0;					//apagar el digito 1 para pasar al siguiente
-	PTAD = segundo;
+	datoDisplay = segundo;
 	anodo2 = 1;
 	retardo(time);
 	anodo2 = 0;
-	PTAD = decima;
+	datoDisplay = decima;
 	anodo3 = 1;
 	retardo(time);
 	anodo3 = 0;
-	PTAD = centima;
+	datoDisplay = centima;
 	anodo4 = 1;
 	retardo(time);
 	anodo4 = 0;
-	a++;
 }
 
 //funcion de retardo por software o polling
