@@ -44,7 +44,13 @@
 unsigned char centima, decima, segundo, dsegundo;	//Variables usadas para el numero visto en el display
 unsigned char cronometro;							//Determina si el cronometro es ascendente (1) o descendente (0)
 unsigned char bandera;								//Permite detener el cronometro con ambos botones 
-unsigned int display;								//Contador general para el reloj, Valor siempre presente en el display
+unsigned int display;
+unsigned char displayTop = 0;                                //Contador general para el reloj, Valor siempre presente en el display
+unsigned char displayDown = 0;                                //Contador general para el reloj, Valor siempre presente en el display
+
+unsigned char flag_rx;                              //Variable bandera de la interrupcion SCI_RX
+volatile unsigned int tiempo;
+volatile unsigned char contDato = 2;
 
 //Constantes en ROM 
 
@@ -55,6 +61,8 @@ unsigned const time=10;				//Constante en ROM que determina el numero de ciclos 
 void setDisplay(unsigned int);						//prototipos de las funciones para que el compilador
 void retardo(unsigned short);			//entienda el nombre y los parametros que reciben/retornan 
 
+
+void SCI_send(char);
 void setPrograma()					// Inicializacion del Programa
 {
 	SOPT1 = 0x02;					//deshabilitar el watchdog
@@ -95,7 +103,7 @@ interrupt VectorNumber_Virq void IRQ_ISR() 	//referencia de la interrupcion
 	IRQSC_IRQACK = 1;			// acknowledge para la interrupcion
 	RTCSC_RTCPS = 0;			// Detiene el modulo RTC
 	cronometro=1;				// Establece el cronometro en Ascendente
-	bandera=0;					// Permite detener el cronometro
+	bandera=1;					// Permite detener el cronometro
 	LedB=!LedB;					// Enciende/Apaga el led azul
 	display = 0;				// Resetea los digitos del display
 }
@@ -108,7 +116,7 @@ void setKBI()
 	
 	KBI2SC_KBIE = 1;			// Habilita las interrupciones en KBI2
 	KBI2SC_KBIMOD = 0;			// Habilita la operacion solo por flancos
-	KBI2SC_KBACK = 1;			// Limpia la bandera de Ejecucion de KBI2 
+	KBI2SC_KBACK = 0;			// Limpia la bandera de Ejecucion de KBI2 
 	
 	KBI2PE_KBIPE7 = 1;			// Habilita el Pin 0 de KBI2 (pin 16)
 	KBI2PE_KBIPE6 = 1;			// Habilita el pin 1 de KBI2 (pin 17)
@@ -121,19 +129,28 @@ interrupt VectorNumber_Vkeyboard void KBI_ISR()
 {
 	KBI2SC_KBACK = 1;			// Limpia la bandera de Interrupción
 	
+	
+	
 	if(PTDD_PTDD6==0)			// Si detecta un flanco negativo en el boton "Descendente"
 	{
 		if(bandera&display>0)
 		{
 			cronometro=0;			// Establece el cronometro en Descendente
 			RTCSC_RTCPS = 11;		// Desactiva el modulo RTC haciendo el Preescalado = 0
+			LedR=1;
 		}
 		else
 		{
-			RTCSC_RTCPS = 0;		// Detiene el cronometro
+			LedR=0;
+		    RTCSC_RTCPS = 0;		// Detiene el cronometro
+		    displayTop=display/100;
+		    SCI_send(displayTop);
+		    retardo(10);
+		    displayDown=display%100;
+		    SCI_send(displayDown); 
+		    
 		}
 		bandera=!bandera;
-		LedR=!LedR;				// Enciende/Apaga el led rojo
 	}
 	if(PTDD_PTDD7==0)			// Si detecta un flanco negativo en el boton "Ascendente"
 	{
@@ -141,14 +158,27 @@ interrupt VectorNumber_Vkeyboard void KBI_ISR()
 		{
 			cronometro=1;			// Establece el cronometro en Ascendente
 			RTCSC_RTCPS = 11;		// Desactiva el modulo RTC haciendo el Preescalado = 0
+			LedG=1;
 		}
 		else
 		{
 			RTCSC_RTCPS = 0;		// Detiene el cronometro
+			LedG=0;
+			displayTop=display/100;
+			SCI_send(displayTop);
+			retardo(10);
+			displayDown=display%100;
+			SCI_send(displayDown); 
 		}
 		bandera=!bandera;
-		LedG=!LedG;				// Enciende/Apaga el led verde
 	}
+	
+	//display=displayTop*100+displayDown;
+	
+	//displayTop=display/100;
+	//displayDown=display%100;
+	
+	//SCI_send(144);              // IMPORTANTE : Dato de Envio
 }
 
 //inicializa el modulo RTC
@@ -180,12 +210,70 @@ interrupt VectorNumber_Vrtc void RTC_ISR()
 	}
 }
 
+// MODULO SCI
+
+void setSCI()
+{
+    SCI2BDH = 0;
+    SCI2BDL = 15;
+    SCI2C1 = 0x00;
+    SCI2C2_TE = 1;
+    SCI2C2_RE = 1;
+    SCI2C2_RIE = 1;
+}
+
+interrupt VectorNumber_Vsci2rx void sci_rx()
+{   
+    flag_rx=SCI2S1_RDRF;    
+    
+    if(SCI2D < 100)
+    {
+        LedB=!LedB;
+        if(contDato==2)
+        {
+            displayTop = SCI2D;
+            contDato=5;
+        }
+        else if(contDato==5)
+        {
+            displayDown = SCI2D;
+            //contDato=!contDato;
+            contDato=2;
+        }
+        display=displayTop*100+displayDown;
+        //contDato=!contDato;
+    }
+    else if(SCI2D == 100)
+    {
+        PTCD_PTCD0 = !PTCD_PTCD0;
+    }
+    else if(SCI2D == 101)
+    {
+        PTCD_PTCD1 = !PTCD_PTCD1;
+    }
+    else if(SCI2D == 102)
+    {
+        PTCD_PTCD2 = !PTCD_PTCD2;
+    }
+    
+}
+
+void SCI_send(char dato)
+{
+    while(SCI2S1_TDRE == 0);
+    SCI2D = dato;
+    return;
+}
+
+
+
 void main(void) 
 {
 	setPrograma();					// Inicializa las variables y parametros del programa
 	setIRQ();						// Inicializa IRQ
 	setKBI();						// Inicializa KBI
 	setRTC();						// Inicializa RTC
+	setSCI();                       // Inicializa SCI
 	
 	for (;;) 
 	{
