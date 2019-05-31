@@ -1,195 +1,224 @@
-/*
-;****************************************************************************
-;*UNIVERSIDAD NACIONAL DE COLOMBIA - FACULTAD DE INGENIERÍA - SEDE BOGOTÁ   *
-;****************************************************************************
-;*Departamento de Ingeniería Mecánica y Mecatrónoca  -  Microcontroladores  *
-;*Primer Semestre 2019                                                      *
-;****************************************************************************
-;*Fecha: 28/05/2019                                                         *
-;*                                                                          *
-;*Autores: Alejandra Arias Torres                                           *
-;*         Leonardo Fabio Mercado                                           *
-;*                                                                          *
-;*Descripción: Cronómetro con nterrupciones RTC, KBI, IRQ                   *
-;*                                                                          *
-;*Documentación:Hoja de datos QE16                                          *
-;*                                                                          *
-;*Archivos Adicionales:                                                     *
-;*                                                                          *
-;*Versión 1.0 realizada en CodeWarrior (Eclipse) V11                        *
-;****************************************************************************
-*/
+//    LABORATORIO 6
 
+/***************************************************************************
+*  UNIVERSIDAD NACIONAL DE COLOMBIA - FACULTAD DE INGENIERIA- Sede Bogotá *
+***************************************************************************
+*  Departamento de Ing.Mecanica y Mecatronica - Microcontroladores - Lab6 *
+***************************************************************************
+*Autor: Daniel Fernando Diaz Coy                                          *
+*                                                                         *
+*Descripcion: Introducción al uso de C, Manejo del Modulo RTC             *
+*                                                                         *
+*Documentacion: -Hoja de datos para el uC MC9S08QE16                      *
+*                                                                         *
+*Fecha de Entrega: 2019-05-22                                             *
+*                                                                         *
+***************************************************************************
+*/
 
 #include <hidef.h> /* for EnableInterrupts macro */
 #include "derivative.h" /* include peripheral declarations */
 
-//Identificación de puertos
-#define	anodo1	PTBD_PTBD2		
-#define	anodo2	PTBD_PTBD3		 
-#define	anodo3	PTCD_PTCD0		
-#define	anodo4  PTCD_PTCD1
-#define	dato	PTAD             // dato para enviar al display
+#define anodo1	PTBD_PTBD0			// Por convención y por orden, se toman los 4 pines del puerto B
+#define anodo2	PTBD_PTBD1			// ubicados en el extremo de la tarjeta (21,22,23,24) para facilitar
+#define anodo3	PTBD_PTBD2			// el ensamble en la protoboard, desde esta definicion se pueden ubicar
+#define anodo4	PTBD_PTBD3			// en otro puerto distinto
+
+#define	LedR	PTCD_PTCD0	 // Led RGB (PTC0-PTC2) (15,19,20)
+#define	LedG	PTCD_PTCD1		 
+#define	LedB	PTCD_PTCD2	
 
 //variables en RAM
-unsigned int contRet;            //Contador para retardo en los anodos    
-unsigned char dig1,dig2,dig3,dig4;
-volatile unsigned int tiempo;    // variable para conteo de tiempo
-unsigned char temp;
 
-//variables en ROM
-const unsigned int limTmp=6000;     //Conteo hasta 60s
-const unsigned short tRet=10;		//tiempo de retardo anodos
+unsigned char centima, decima, segundo, dsegundo;	//Variables usadas para el numero visto en el display
+unsigned int contador;									//Contador general para el reloj
 
+//Constantes en ROM 
+
+unsigned const time=10;				//Constante en ROM que determina el numero de ciclos del retardo
 
 //Prototipos de funciones
-void digitos (unsigned int ); //Función para actualizar el valor de los dígitos a mostrar en el display
-void display(void);			  //Función para alternar los ánodos en el display
-void retardo(unsigned short); //Retardo para definir la frecuencia para el cambio de los ánodos
 
-void init_icg(void);		  //Activación del BusClk para el ISC2	
-void init_sci(void);		  //Configuracion del ICS2	
-void send_sci(char dato_sci); //Función enviar Dato del ICS2
-char receive_sci(void);       //Función Recibir Dato del ICS2
+void display(void);						//prototipos de las funciones para que el compilador
+void retardo(unsigned short);			//entienda el nombre y los parametros que reciben/retornan 
 
-void irq_init() {
+void setPrograma()					// Inicializacion del Programa
+{
+	SOPT1 = 0x02;					//deshabilitar el watchdog
+	PTADD = 0x0f;					//configuracion de pines para manejo del display 7 segmentos
+	PTBDD_PTBDD0 = 1;				//pin para anodo 1/digito1
+	PTBDD_PTBDD1 = 1;				//pin para anodo 2/digito2
+	PTBDD_PTBDD2 = 1;				//pin para anodo 3/digito3
+	PTBDD_PTBDD3 = 1;				//pin para anodo 4/digito4
+	
+	PTCDD_PTCDD0 = 1;				//define salida para pin 20, PTC0
+	PTCDD_PTCDD1 = 1;				//define salida para pin 19, PTC1
+	PTCDD_PTCDD2 = 1;				//define salida para pin 15, PTC2
+
+	dsegundo = 2;					// Inicializa con un valor predefinido, en este caso se coloco
+	segundo = 0;					// el año actual (2019) para ser visualizado
+	decima = 1;						// como prueba de que el boton reset esta funcionando correctamente
+	centima = 9;					//
+			
+	contador=0;
+
+	EnableInterrupts;				//Macro para habilitar interrupciones
+}
+
+//funcion inicializacion del modulo IRQ
+void setIRQ()
+{
 	IRQSC_IRQEDG = 0;				// activa con flanco de bajada
 	IRQSC_IRQPE = 1;				// habilita el pin como entrada IRQ
 	IRQSC_IRQIE = 1;				// se habilita la interrupcion por IRQ
-	IRQSC_IRQMOD = 0;				// se selecciona solo flanco
+	IRQSC_IRQMOD = 0;				// se selecciona solo con flanco
 }
 
-void kbi_init() {
-	KBI2PE_KBIPE0=1;                // habilitar pin para interrupción kbi
-	KBI2PE_KBIPE1=1;
-	PTDPE_PTDPE0 = 1;				// habilitar resistencias pull-up o pull-down
-	PTDPE_PTDPE1 = 1;
-	KBI2ES_KBEDG0=0;                // resistencia pull-up y flanco de bajada
-	KBI2ES_KBEDG1=0;
-	KBI2SC_KBIMOD=0;                // detección unicamente de flancos
-	KBI2SC_KBIE=1;                  // habilitar interrupción
-	KBI2SC_KBACK=1;                 // evitar falsas interrupciones la iniciar
+//funcion que atendera la interrupcion por IRQ
+interrupt VectorNumber_Virq void IRQ_ISR() 	//referencia de la interrupcion
+{  
+	IRQSC_IRQACK = 1;			// acknowledge para la interrupcion
+	RTCSC_RTCPS = 0;			// Detiene el modulo RTC
+	
+	LedB=!LedB;
+	centima = 0;				// Resetea los digitos del display
+	decima = 0;					//
+	segundo = 0;				//
+	dsegundo = 0;				//
 }
 
-void rtc_init(){
-	RTCSC=0b00010000;              //RTCLKS = 00 clock de 1khz  (LPO) Bit 5 y 6 RTCSC
-	                               //RTIE=1 = activar interrupción por RTI
-	                               //RTCPS  = preescaler a 10ms	
-	RTCMOD=0;                      //Valor de desborde del contador
+//inicializa el modulo KBI
+void setKBI()
+{
+	PTDPE_PTDPE7 = 1;			// Habilita la resistencia Pull en PTD0, boton "start"
+	PTDPE_PTDPE6 = 1;			// Habilita la resistencia Pull en PTD1, boton "stop"   
+	
+	KBI2SC_KBIE = 1;			// Habilita las interrupciones en KBI2
+	KBI2SC_KBIMOD = 0;			// Habilita la operacion solo por flancos
+	KBI2SC_KBACK = 1;			// Limpia la bandera de Ejecucion de KBI2 
+	
+	KBI2PE_KBIPE7 = 1;			// Habilita el Pin 0 de KBI2 (pin 16)
+	KBI2PE_KBIPE6 = 1;			// Habilita el pin 1 de KBI2 (pin 17)
+	KBI2ES_KBEDG7 = 0;			// Habilita interrupción por flanco de bajada en la entrada KBI2P0
+	KBI2ES_KBEDG6 = 0;			// Habilita interrupción por flanco de bajada en ls entrada KBI2P1
 }
 
-interrupt VectorNumber_Virq void irq_isr() { //reset
-	IRQSC_IRQACK = 1;				//acknowledge para la interrupcion
-	tiempo=0;
+// Funcion que atendera la interrupcion por KBI
+interrupt VectorNumber_Vkeyboard void KBI_ISR()
+{
+	KBI2SC_KBACK = 1;			// Limpia la bandera de Interrupción
+	
+	if(PTDD_PTDD7==0)			// Si detecta un flanco negativo en el boton "stop"
+	{
+		RTCSC_RTCPS = 0;		// Desactiva el modulo RTC haciendo el Preescalado = 0
+		LedR=!LedR;
+	}
+	if(PTDD_PTDD6==0)			// Si detecta un flanco negativo en el boton "start"
+	{
+		LedG=!LedG;
+		RTCSC_RTCPS = 11;		// Activa el modulo RTC haciendo el Preescalado = 11 (10ms por ejecucion)
+	}
 }
 
-interrupt VectorNumber_Vkeyboard void kbi_isr(){
-	KBI2SC_KBACK = 1;               //acknowledge 
-	if (PTDD_PTDD0 ==0 ){           //stop
-		RTCSC=0b00010000; 
-	}else if(PTDD_PTDD1==0){        //play
-		RTCSC=0b00011011; 
-		if(tiempo==limTmp){   // reiniciar conteo si se llegó al límite
-			tiempo=0;
+//inicializa el modulo RTC
+void setRTC()
+{
+	RTCSC_RTIF = 0;				// Coloca la bandera de interrupcion RTC en 0
+	RTCSC_RTCLKS = 0;			// Selecciona el origen de la señal de reloj, 1Khz LPO
+	RTCSC_RTIE = 1;				// Habilita la interrupcion por RTC
+	RTCSC_RTCPS = 0;			// PreEscalado del reloj, en 0 para no iniciar cuenta al habilitar
+}
+// Funcion que atendera la interupcion por RTC
+interrupt VectorNumber_Vrtc void RTC_ISR()
+{
+	RTCSC_RTIF = 0;				// Limpia la bandera de la interrupcion
+	RTCSC_RTCPS = 11;			// Vuelve a llamar la interrupcion al variar el preescale en 10ms
+	if(dsegundo < 6)			// Comparacion principal, limita que el cronometro llegue a 60 segundos
+	{
+		centima++;				// Incrementa centima
+		if(centima%10==0)		// si centima es multiplo de 10, incrementa el digito siguiente
+		{
+			centima=0;
+			decima++;
+			if(decima%10==0) 
+			{
+				decima=0;
+				segundo++;
+				if(segundo%10==0)
+				{
+					segundo=0;
+					dsegundo++;
+				}
+			}
 		}
 	}
+	if(dsegundo==6)				
+	{
+		RTCSC_RTCPS = 0;		// Detiene el cronometro al llegar a 60 segundos
+	}
+	
+	//PPP++;
 }
 
-interrupt VectorNumber_Vrtc void rtc_isr(){	               
-	RTCSC_RTIF=1;           //acknowledge interrupt request
-	if (tiempo<limTmp){    //sumar solo si tiempo no ha llegado al límite
-		tiempo++;
+void main(void) 
+{
+	setPrograma();					// Inicializa las variables y parametros del programa
+	setIRQ();						// Inicializa IRQ
+	setKBI();						// Inicializa KBI
+	setRTC();						// Inicializa RTC
+	
+	for (;;) 
+	{
+		display();					//llamar a display constantemente
+	} /* loop forever */
+	/* please make sure that you never leave main */
+}
+
+//******************* Subrutinas de Ejecucion ******************
+
+//subrutina de conteo
+void conteo(char estado)
+{
+	if(estado)
+	{
+		contador++;
+	}
+	else
+	{
+		contador--;
 	}
 }
 
-void main(void) {
-	SOPT1 = 0x02;					//deshabilitar el watchdog
-    tiempo=0;                       //iniciar contador de tiempo   
-	SOPT1 = 0x02;					//deshabilitar el watchdog
-	PTADD = 0x0f;					//configuracion de pines para manejo del display 7 segmentos
-	PTBDD_PTBDD2 = 1;				//configurar pines como salida
-	PTBDD_PTBDD3 = 1;				
-	PTCDD_PTCDD0 = 1;				
-	PTCDD_PTCDD1 = 1;				
-	irq_init();						//inicializar interrupciones
-	kbi_init();	
-	rtc_init();
-	  
-    init_icg();
-	init_sci();
-	
-	EnableInterrupts;				 //Habilitar interrupciones CLI en assembler (Clear Interrupt Mask Bit)
-	
-  /* include your code here */
-  for(;;) {
-	digitos(tiempo);            //separar datos de tiempo en unidades decenas decimas y centesimas de s
-    display();                  //siempre mostrar display
-  } /* loop forever */  
-}
-
-void init_icg(){
-
-	SCGC1 = 0xFF;               //BUSCLK ENABLE para ICS2
-}
-
-
-void init_sci(){
-	
-	//	Frequency de bus 4 MHz !!!!VERIFICAR O AJUSTAR!!!
-	//	Baudrate 19200
-	SCI2BDH = 0x00;
-	SCI2BDL = 0x0D;	    		//13 para llegar a los 19200
-	SCI2C2_TE = 1;				//Habilita el TX en ICS2		
-	SCI2C2_RE = 1;				//Habilita el RX en ICS2
-}
-
-void send_sci(char dato_sci){
-	while(SCI2S1_TDRE);			//!!!!VERIFICAR!!!!!   (!SCI2S1_TDRE)
-	temp = SCI2S1;	
-	SCI2D = dato_sci;
-}
-
-char receive_sci(void){
-	while (!SCI2S1_RDRF); 
-	return SCI2D;
-}
-
-
-
-
-
-//Función para actualizar el valor de los dígitos a mostrar en el display
-void digitos (unsigned int var){ /*VERIFICAR ORDEN EN DISPLAY*/
-	dig4=var%10;                //centesimas de s
-	dig3=var/10%10;             //decimas de s
-	dig2=var/100%10;            //unidades
-	dig1=var/1000;              //decenas
-};
-
-//Función para alternar los ánodos en el display
-void display() {
-	dato = dig1;				//cargar numero del digito 1 en PTA
+//metodo para el display 7 segmentos
+void display() 					// Reciclado del Ejemplo
+{
+	static a;
+	PTAD = dsegundo;			//cargar numero del digito 1 en PTA
 	anodo1 = 1;					//encender el digito 1 con el anodo 1
-	retardo(tRet);				//llamar funcion retardo 
+	retardo(time);				//llamar funcion retardo pasandole valor time para uso en ciclo for
 	anodo1 = 0;					//apagar el digito 1 para pasar al siguiente
-	dato = dig2;
+	PTAD = segundo;
 	anodo2 = 1;
-	retardo(tRet);
+	retardo(time);
 	anodo2 = 0;
-	dato = dig3;
+	PTAD = decima;
 	anodo3 = 1;
-	retardo(tRet);
+	retardo(time);
 	anodo3 = 0;
-	dato = dig4;
+	PTAD = centima;
 	anodo4 = 1;
-	retardo(tRet);
+	retardo(time);
 	anodo4 = 0;
+	a++;
 }
 
-//Retardo para definir la frecuencia para el cambio de los ánodos
-void retardo(unsigned short max) {
-	for (contRet = 0; contRet < max; ++contRet) {
-		asm nop;  
-		 
+//funcion de retardo por software o polling
+void retardo(unsigned short max)
+{
+	unsigned volatile int ciclo;
+	for (ciclo = 0; ciclo < max; ciclo++) 
+	{
+		//funcion recibe un parametro "max" utilizado para el ciclo for
 	}
 }
+
