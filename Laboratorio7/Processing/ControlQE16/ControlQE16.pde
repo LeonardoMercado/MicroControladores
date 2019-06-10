@@ -44,10 +44,10 @@ int contador = 0;            //Contador de cantidad de valores introducidos al t
 void setup(){
   size(1000,600);              
   control5 = new ControlP5(this);    //Instanciación del objeto control
-  
-  control5.addTextfield("TOP").setPosition(112,470).setSize(60,60).setFont(createFont("TraditionalArabic",26));  //Cuadro de texto Top para introducir datos
-  control5.addTextfield("DOWN").setPosition(190,470).setSize(60,60).setFont(createFont("TraditionalArabic",26)); //Cuadro de texto Down para introducir datos
-  control5.addBang("ENVIAR").setPosition(314,470).setSize(100,60).setFont(createFont("TraditionalArabic",30));   //Boton de Enviar la información almacenada en TOP y DOWN
+  //control5.setFont(createFont("TraditionalArabic",26);
+  control5.addTextfield("TOP").setPosition(112,470).setSize(60,60);//.setFont(createFont("TraditionalArabic",26));  //Cuadro de texto Top para introducir datos
+  control5.addTextfield("DOWN").setPosition(190,470).setSize(60,60);//.setFont(createFont("TraditionalArabic",26)); //Cuadro de texto Down para introducir datos
+  control5.addBang("ENVIAR").setPosition(314,470).setSize(100,60);//.setFont(createFont("TraditionalArabic",30));   //Boton de Enviar la información almacenada en TOP y DOWN
   
   
 }
@@ -167,7 +167,7 @@ void mousePressed(){   //FUNCION QUE DOMINA LAS ACCIONES DE LOS BOTONES
   fill(255,0,0,255);
   rect(157,300,90,90,3);
   puerto.clear();
-  puerto.write('1');          //Se envia el 1 en ASCII para alternar estado del led ROJO
+  puerto.write(100);          //Se envia el 1 en ASCII para alternar estado del led ROJO
   }
   
   
@@ -176,7 +176,7 @@ void mousePressed(){   //FUNCION QUE DOMINA LAS ACCIONES DE LOS BOTONES
   fill(0,255,0,255);
   rect(455,300,90,90,3);
   puerto.clear();
-  puerto.write('3');          //Se envia el 3 en ASCII para alternar estado del led Verde
+  puerto.write(101);          //Se envia el 3 en ASCII para alternar estado del led Verde
   }
   
   
@@ -185,7 +185,7 @@ void mousePressed(){   //FUNCION QUE DOMINA LAS ACCIONES DE LOS BOTONES
   fill(0,0,255,10);
   rect(766,300,90,90,3);
   puerto.clear();
-  puerto.write('2');          //Se envia el 2 en ASCII para alternar estado del led AZUL
+  puerto.write(102);          //Se envia el 2 en ASCII para alternar estado del led AZUL
   }
   //_________________________________________________________________________
   
@@ -193,13 +193,20 @@ void mousePressed(){   //FUNCION QUE DOMINA LAS ACCIONES DE LOS BOTONES
 void ENVIAR(){ //FUNCION QUE DOMINA EL ENVIO DE DATOS PARA EL CRONOMETRO
   top = control5.get(Textfield.class,"TOP").getText(); //captura del valor en TOP en formato String
   down = control5.get(Textfield.class,"DOWN").getText(); //Captura del valor en Down con formato String
-  byte[] byteTop = top.getBytes();                       //Castin a byte del valor en TOP
-  byte[] byteDown = down.getBytes();                     //Castin a byte del valor en DOWN
-  byte[] cronometro = concat(byteTop, byteDown);         //Concatenación del valor deseado para el Cronometro
-
-  for(int i = 0; i < 4; i++){ 
-    puerto.write(cronometro[i]);                        //Envio de cada valor almacenado en cronometro
-  }  
+  String a=top+down;
+  //int IntTop=Integer.parseInt(top);
+  //int IntDown=Integer.parseInt(top);
+  print(a);
+  int cronometro=Integer.parseInt(a);
+  for(int i=0;i<2;i++){
+    int data=0;
+    if(i==0){
+      data=cronometro/100;
+    } else {
+      data=cronometro%100; 
+    }
+      puerto.write(data);
+  }
   fill(255,255,255);                                    //Actualización del valor del cronometro dentro de la interfaz
   textSize(130);
   text(top,580,420);

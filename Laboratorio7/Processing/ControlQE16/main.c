@@ -44,13 +44,11 @@
 unsigned char centima, decima, segundo, dsegundo;	//Variables usadas para el numero visto en el display
 unsigned char cronometro;							//Determina si el cronometro es ascendente (1) o descendente (0)
 unsigned char bandera;								//Permite detener el cronometro con ambos botones 
-unsigned int display;
-unsigned char displayTop = 0;                                //Contador general para el reloj, Valor siempre presente en el display
-unsigned char displayDown = 0;                                //Contador general para el reloj, Valor siempre presente en el display
+unsigned int display;								//Contador general para el reloj, Valor siempre presente en el display
 
 unsigned char flag_rx;                              //Variable bandera de la interrupcion SCI_RX
 volatile unsigned int tiempo;
-volatile unsigned char contDato = 2;
+volatile unsigned char contDato=0;
 
 //Constantes en ROM 
 
@@ -129,28 +127,19 @@ interrupt VectorNumber_Vkeyboard void KBI_ISR()
 {
 	KBI2SC_KBACK = 1;			// Limpia la bandera de Interrupción
 	
-	
-	
 	if(PTDD_PTDD6==0)			// Si detecta un flanco negativo en el boton "Descendente"
 	{
 		if(bandera&display>0)
 		{
 			cronometro=0;			// Establece el cronometro en Descendente
 			RTCSC_RTCPS = 11;		// Desactiva el modulo RTC haciendo el Preescalado = 0
-			LedR=1;
 		}
 		else
 		{
-			LedR=0;
-		    RTCSC_RTCPS = 0;		// Detiene el cronometro
-		    displayTop=display/100;
-		    SCI_send(displayTop);
-		    retardo(10);
-		    displayDown=display%100;
-		    SCI_send(displayDown); 
-		    
+			RTCSC_RTCPS = 0;		// Detiene el cronometro
 		}
 		bandera=!bandera;
+		LedR=!LedR;				// Enciende/Apaga el led rojo
 	}
 	if(PTDD_PTDD7==0)			// Si detecta un flanco negativo en el boton "Ascendente"
 	{
@@ -158,27 +147,16 @@ interrupt VectorNumber_Vkeyboard void KBI_ISR()
 		{
 			cronometro=1;			// Establece el cronometro en Ascendente
 			RTCSC_RTCPS = 11;		// Desactiva el modulo RTC haciendo el Preescalado = 0
-			LedG=1;
 		}
 		else
 		{
 			RTCSC_RTCPS = 0;		// Detiene el cronometro
-			LedG=0;
-			displayTop=display/100;
-			SCI_send(displayTop);
-			retardo(10);
-			displayDown=display%100;
-			SCI_send(displayDown); 
 		}
 		bandera=!bandera;
+		LedG=!LedG;				// Enciende/Apaga el led verde
 	}
 	
-	//display=displayTop*100+displayDown;
-	
-	//displayTop=display/100;
-	//displayDown=display%100;
-	
-	//SCI_send(144);              // IMPORTANTE : Dato de Envio
+	SCI_send(144);              // IMPORTANTE : Dato de Envio
 }
 
 //inicializa el modulo RTC
@@ -215,7 +193,7 @@ interrupt VectorNumber_Vrtc void RTC_ISR()
 void setSCI()
 {
     SCI2BDH = 0;
-    SCI2BDL = 15;
+    SCI2BDL = 14;
     SCI2C1 = 0x00;
     SCI2C2_TE = 1;
     SCI2C2_RE = 1;
@@ -225,23 +203,16 @@ void setSCI()
 interrupt VectorNumber_Vsci2rx void sci_rx()
 {   
     flag_rx=SCI2S1_RDRF;    
-    
-    if(SCI2D < 100)
+    if(SCI2D < 100 & contDato==0)
     {
-        LedB=!LedB;
-        if(contDato==2)
-        {
-            displayTop = SCI2D;
-            contDato=5;
-        }
-        else if(contDato==5)
-        {
-            displayDown = SCI2D;
-            //contDato=!contDato;
-            contDato=2;
-        }
-        display=displayTop*100+displayDown;
-        //contDato=!contDato;
+        tiempo+=SCI2D;
+        tiempo<<4;
+        contDato++;
+    }
+    else if(SCI2D < 100 & contDato==1)
+    {
+        tiempo=SCI2D;
+        contDato--;
     }
     else if(SCI2D == 100)
     {
@@ -255,7 +226,6 @@ interrupt VectorNumber_Vsci2rx void sci_rx()
     {
         PTCD_PTCD2 = !PTCD_PTCD2;
     }
-    
 }
 
 void SCI_send(char dato)
