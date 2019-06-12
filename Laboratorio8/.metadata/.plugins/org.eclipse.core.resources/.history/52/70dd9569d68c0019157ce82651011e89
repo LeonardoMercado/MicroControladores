@@ -1,0 +1,52 @@
+#include <hidef.h> /* for EnableInterrupts macro */
+#include "derivative.h" /* include peripheral declarations */
+
+char dato[] = "12345";
+unsigned short varDelay;
+
+void SCI_send(char dato);
+void sendString(char dato[]);
+void delay(unsigned short);
+
+interrupt VectorNumber_Vadc void adc_isr() {	
+
+}
+
+void setADC(){
+	SCGC1_ADC = 1;
+	ADCCFG = 0X29;
+	ADCSC2 = 0x00;
+	ADCSC1 = 0x68;
+	APCTL1 = 0Xff;
+	APCTL2 = 0x01;
+}
+
+void setSCI() {
+	SCGC1_SCI2 = 1;
+    SCI2BDH = 0x00;
+    SCI2BDL = 14;
+    SCI2C1 = 0x00;
+    SCI2C2_TE = 1;
+}
+
+
+void main(void) {
+	
+	setADC();
+	setSCI();
+
+	
+	
+	
+	
+	
+  EnableInterrupts;
+  /* include your code here */
+
+  
+
+  for(;;) {
+    __RESET_WATCHDOG();	/* feeds the dog */
+  } /* loop forever */
+  /* please make sure that you never leave main */
+}

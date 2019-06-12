@@ -1,0 +1,44 @@
+#include <hidef.h> /* for EnableInterrupts macro */
+#include "derivative.h" /* include peripheral declarations */
+
+
+
+void SCI_send(char dato);
+void 
+
+
+
+void setSCI(){
+	SCGC1_SCI2 = 1;
+    SCI2BDH = 0x00;
+    SCI2BDL = 14;
+    SCI2C1 = 0x00;
+    SCI2C2_TE = 1;
+}
+
+
+void SCI_send(char dato){
+	    while(SCI2S1_TDRE == 0);
+	    SCI2D = dato;
+	    return;
+}
+	
+
+void main(void) {
+	
+
+  setSCI();
+  
+	
+
+	
+  EnableInterrupts;
+  /* include your code here */
+
+  
+
+  for(;;) {
+    __RESET_WATCHDOG();	/* feeds the dog */
+  } /* loop forever */
+  /* please make sure that you never leave main */
+}
