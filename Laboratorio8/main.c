@@ -49,9 +49,6 @@
  
 #define canalEntrada    ADCSC1_ADCH     // Selecciona el canal de entrada (00000 - 01001 en el QE16) al cual se le hara la conversión
 
-
-
-
 // Configuraciones recicladas del Lab. 7
 
 #define display1  PTBD_PTBD4          // Por convención y por orden, se toman los 4 pines del puerto 
@@ -68,18 +65,17 @@
 // variables en RAM
 
 int datoADC[8];                      // Almacena el dato resultante de ADC
-int entrada;
+int datoL[8];
+int datoH[8];
 
 //RAM - Reciclado del Lab7
 
 unsigned char centima, decima, segundo, dsegundo;   //Variables usadas para el numero visto en el display
-unsigned char cronometro;                           //Determina si el cronometro es ascendente (1) o descendente (0)
-unsigned char bandera;                              //Permite detener el cronometro con ambos botones 
 unsigned int display;
 
+unsigned char bandera;   
+
 unsigned char flag_rx;                              //Variable bandera de la interrupcion SCI_RX
-volatile unsigned int tiempo;
-volatile unsigned char contDato = 2;
 
 //Variables en ROM
 
@@ -188,51 +184,59 @@ interrupt VectorNumber_Vadc void servicioADC()
     switch(canalEntrada)
     {
         case 0:
-            //Entrada0=1;
             datoADC[0]=bufferADCH;
-            datoADC[0]<<8;
+            datoH[0]=bufferADCH;
+            datoL[0]=bufferADCL;
+            datoADC[0]=datoADC[0]<<8;
             datoADC[0]=datoADC[0]+bufferADCL;
         break;
         case 1:
-            //Entrada1=1;
             datoADC[1]=bufferADCH;
-            datoADC[1]<<8;
+            datoH[1]=bufferADCH;
+            datoL[1]=bufferADCL;
+            datoADC[1]=datoADC[1]<<8;
             datoADC[1]=datoADC[1]+bufferADCL;
         break;
         case 2:
-            //Entrada2=1;
             datoADC[2]=bufferADCH;
-            datoADC[2]<<8;
+            datoH[2]=bufferADCH;
+            datoL[2]=bufferADCL;
+            datoADC[2]=datoADC[2]<<8;
             datoADC[2]=datoADC[2]+bufferADCL;
         break;
         case 3:
-            //Entrada3=1;
             datoADC[3]=bufferADCH;
-            datoADC[3]<<8;
+            datoH[3]=bufferADCH;
+            datoL[3]=bufferADCL;
+            datoADC[3]=datoADC[3]<<8;
             datoADC[3]=datoADC[3]+bufferADCL;
         break;
         case 4:
-            //Entrada4=1;
             datoADC[4]=bufferADCH;
-            datoADC[4]<<8;
+            datoH[4]=bufferADCH;
+            datoL[4]=bufferADCL;
+            datoADC[4]=datoADC[4]<<8;
             datoADC[4]=datoADC[4]+bufferADCL;
         break;
         case 5:
-            //Entrada5=1;
             datoADC[5]=bufferADCH;
-            datoADC[5]<<8;
-            datoADC[5]=datoADC[3]+bufferADCL;
+            datoH[5]=bufferADCH;
+            datoL[5]=bufferADCL;
+            datoADC[5]=datoADC[5]<<8;
+            datoADC[5]=datoADC[5]+bufferADCL;
         break;
         case 6:
-            //Entrada6=1;
             datoADC[6]=bufferADCH;
-            datoADC[6]<<8;
+            datoH[6]=bufferADCH;
+            datoL[6]=bufferADCL;
+            datoADC[6]=datoADC[6]<<8;
             datoADC[6]=datoADC[6]+bufferADCL;
         break;
         case 7:
-            //Entrada7=1;
             datoADC[7]=bufferADCH;
-            datoADC[7]<<8;
+            datoH[7]=bufferADCH;
+            datoL[7]=bufferADCL;
+            datoADC[7]=datoADC[7]<<8;
             datoADC[7]=datoADC[7]+bufferADCL;
         break;
     }
@@ -250,15 +254,41 @@ void main(void)
     {
         // Prueba ADC
         
-        canalEntrada=2;
-        Entrada2=1;
+        Entrada0=1;
+        canalEntrada=0;
         
-        display=datoADC[2];
-        
-        setDisplay(display);                    //llamar a display constantemente
-        //enviarTodo();
+        display=datoADC[7];
+        setDisplay(display);
+
+        enviarTodo();
     } 
 }
+
+// SUBRUTINAS DE USUARIO
+
+// Subrutina que permite ver el valor resultante del ADC en el display, dependiente del canal 0-7
+
+void mostrarCanales(int canal)
+{
+    if(canal>=0&&canal<=7)
+    {
+        
+    }
+    setDisplay(display);
+}
+
+// Subrutina de escalamiento, escala el valor 0-4095 a 0-999
+
+int escalamiento(int valorEntrada)
+{
+    float valor;
+    volatile unsigned char valorRetorno;
+    valor=(1000/4096)*valorEntrada;
+    valorRetorno=valor;
+    return valor;
+}
+
+// --- recicladas de lab. anteriores ---
 
 // Subrutina que envia sucesivamente todos los datos del programa
 
@@ -266,20 +296,31 @@ void enviarTodo()
 {
     unsigned volatile int i;
     Entradas=1;
+    canalEntrada=0;
     for(i=0;i<8;i++)
     {
-        canalEntrada++;
-        SCI_send(bufferADCH);
+        SCI_send(datoH[i]);
         retardo(time);
-        SCI_send(bufferADCL);
-        Entradas<<1;
+        SCI_send(datoL[i]);
+        retardo(time);
+        
+        //SCI_send(datoADC[i]);
+        //SCI_send(datoH[i]);
+        //retardo(time);
+        //SCI_send(10);
+        //retardo(time);
+        if(i<7)
+        {
+            canalEntrada++;
+            Entradas=Entradas<<1;
+        }
     }
     Entradas=0;
 }
 
 // Reciclado del Lab7
 
-void setDisplay(unsigned int var)                   
+void setDisplay(unsigned int var)
 {
     centima=var%10;                //centesimas de s
     decima=var/10%10;             //decimas de s
