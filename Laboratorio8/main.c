@@ -65,8 +65,8 @@
 // variables en RAM
 
 int datoADC[8];                      // Almacena el dato resultante de ADC
-int datoL[8];
-int datoH[8];
+char datoL[8];
+char datoH[8];
 
 //RAM - Reciclado del Lab7
 
@@ -300,9 +300,11 @@ void enviarTodo()
     for(i=0;i<8;i++)
     {
         SCI_send(datoH[i]);
-        retardo(time);
+        //retardo(time);
+        retardo(10*time);
         SCI_send(datoL[i]);
-        retardo(time);
+        retardo(10*time);
+        //retardo(time);
         
         //SCI_send(datoADC[i]);
         //SCI_send(datoH[i]);

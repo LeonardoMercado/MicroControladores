@@ -26,8 +26,6 @@ void setup(){
   botonParar = control.addBang("Parar").setPosition(90, 150).setSize(60, 40)
                   .setFont(createFont("Liberation Sans Narrow Bold", 16))
                   .setCaptionLabel("Parar \n COM");
-  
-  
 }
 
 void draw(){
@@ -56,111 +54,115 @@ void draw(){
   text("Distancia", 50,490);
   popMatrix();
   
-  fill(0);
-  line(115,300,115,580);
+  int h=4095/16+70;
+  int h1=(580-h)/5;
   
+  fill(0);
+  line(115,h,115,580);
+  
+
   line(100,580,115,580);
-  line(100,524,115,524);
-  line(100,468,115,468);
-  line(100,412,115,412);
-  line(100,356,115,356);
-  line(100,300,115,300);
+  line(100,h+h1,115,h+h1);
+  line(100,h+2*h1,115,h+2*h1);
+  line(100,h+3*h1,115,h+3*h1);
+  line(100,h+4*h1,115,h+4*h1);
+  line(100,h,115,h);
   
   fill(0);
-  textSize(18);
+  textSize(14);
   pushMatrix();
-  translate(95,585);
-  rotate(-HALF_PI);
+  translate(95,580);
+  //rotate(-HALF_PI);
   translate(-95,-585);
-  text("0", 95,585);
+  text("0", 60,585);
   popMatrix();
   
 
   pushMatrix();
-  translate(95,537);
-  rotate(-HALF_PI);
+  translate(95,h+4*h1);
+  //rotate(-HALF_PI);
   translate(-95,-537);
-  text("200", 95,537);
+  text("819", 60,537);
   popMatrix();
   
 
   pushMatrix();
-  translate(95,480);
-  rotate(-HALF_PI);
+  translate(95,h+3*h1);
+  //rotate(-HALF_PI);
   translate(-95,-480);
-  text("400", 95,480);
+  text("1638", 60,480);
   popMatrix();
   
 
   pushMatrix();
-  translate(95,425);
-  rotate(-HALF_PI);
+  translate(95,h+2*h1);
+  //rotate(-HALF_PI);
   translate(-95,-425);
-  text("600", 95,425);
+  text("2457", 60,425);
   popMatrix();
   
 
   pushMatrix();
-  translate(95,369);
-  rotate(-HALF_PI);
+  translate(95,h+h1);
+  //rotate(-HALF_PI);
   translate(-95,-369);
-  text("800", 95,369);
+  text("3276", 60,369);
   popMatrix();
   
 
   pushMatrix();
-  translate(95,324);
-  rotate(-HALF_PI);
+  translate(95,h);
+  //rotate(-HALF_PI);
   translate(-95,-324);
-  text("1000", 95,324);
+  text("4095", 60,324);
   popMatrix();
   
-  text("S0",151,600);
-  text("S1",226,600);
-  text("S2",301,600);
-  text("S3",376,600);
-  text("S4",451,600);
-  text("S5",526,600);
-  text("S6",601,600);
-  text("S7",676,600);
+  text("S7",151,600);
+  text("S6",226,600);
+  text("S5",301,600);
+  text("S4",376,600);
+  text("S3",451,600);
+  text("S2",526,600);
+  text("S1",601,600);
+  text("S0",676,600);
   //_______________________________________________________________________________________
   
   fill(0);
   textSize(12);
-  text(valor[0],151,570-(valor[0]/4));
-  text(valor[1],226,570-(valor[1]/4));
-  text(valor[2],301,570-(valor[2]/4));
-  text(valor[3],376,570-(valor[3]/4));
-  text(valor[4],451,570-(valor[4]/4));
-  text(valor[5],526,570-(valor[5]/4));
-  text(valor[6],601,570-(valor[6]/4));
-  text(valor[7],676,570-(valor[7]/4));
+  text(valor[7],151,316);
+  text(valor[6],226,316);
+  text(valor[5],301,316);
+  text(valor[4],376,316);
+  text(valor[3],451,316);
+  text(valor[2],526,316);
+  text(valor[1],601,316);
+  text(valor[0],676,316);
 
      
   fill(255,0,0);
   stroke(0,0,255);
-  rect(131,580,74,-valor[0]/16);
+  rect(131,580,74,-valor[7]/16);
  
-  rect(206,580,74,-valor[1]/16);
+  rect(206,580,74,-valor[6]/16);
 
-  rect(281,580,74,-valor[2]/16);
+  rect(281,580,74,-valor[5]/16);
 
-  rect(356,580,74,-valor[3]/16);
+  rect(356,580,74,-valor[4]/16);
 
-  rect(431,580,74,-valor[4]/16);
+  rect(431,580,74,-valor[3]/16);
 
-  rect(506,580,74,-valor[5]/16);
+  rect(506,580,74,-valor[2]/16);
 
-  rect(581,580,74,-valor[6]/16);
+  rect(581,580,74,-valor[1]/16);
 
-  rect(656,580,74,-valor[7]/16);
+  rect(656,580,74,-valor[0]/16);
   stroke(0);
  
  
 }
 void Iniciar(){                              //handler del boton Iniciar
   println("Iniciar COM, en proceso");
-  puerto = new Serial(this, "COM4", 19200);
+  puerto = new Serial(this, "COM5", 19200);
   println("Iniciar COM, conectado");
 }
 void Parar(){                                //handler del boton Parar
@@ -171,69 +173,28 @@ void Parar(){                                //handler del boton Parar
   }
 }
 
-//RECEPCIÓN DE DATOS PARA CRONOMETRO.
+//RECEPCIÓN DE DATOS.
 
 void serialEvent(Serial puerto) { 
   if(puerto.available()>0 & contador<16){   
-   valorAux[contador] = puerto.read();
-   println("parte alta",valorAux[contador]);
-   if((contador+1)%2==0){
+   valorAux[contador] = puerto.read();   
+   if((contador-1)%2==0){
+     println("parte baja",valorAux[contador]);
      valor[canal]=valorAux[contador-1];
      valor[canal]=valor[canal]<<8;
-     println("con corrimiento",valor[canal]);
      valor[canal]+=valorAux[contador];
-     println(valor[canal]);
-     println(canal,contador);
+     println("H+L",valor[canal]);
+     println("canal= ",canal,"contador= ",contador);
      if(canal==7){
          canal=-1;
      }
      canal++;
+    }else{
+      println("parte alta",valorAux[contador]);    
     }
      if(contador==15){
-       contador=0;
+       contador=-1;
     }      
     contador++;
   }   
 } 
-
-
-
-
-
-
-
-
-
-/*
-void serialEvent(Serial puerto) { 
-  if(puerto.available()>0 & canal<8){
-   valor[canal] = puerto.read();
-   println(valor[canal]);
-   println(canal);     
-    if(canal==7){
-      canal=-1;
-    } 
-    canal++; 
-  }   
-} 
-
-*/
-
-
-/*
-void serialEvent (Serial puerto){    //equivalente a una interrupcion para recibir datos del puerto serial
-    
-    if(puerto.available()>=0){
-      dato = puerto.readStringUntil('\n');
-    
-    if(dato!=null){
-      println(dato);
-      valor[canal] = Integer.parseInt(dato.trim());
-      canal++;
-    }
-    if(canal>7){
-      canal = 0;
-    }
-  }
-}
-*/
