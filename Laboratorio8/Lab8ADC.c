@@ -30,18 +30,20 @@
 #define	LedG	 PTCD_PTCD1		 
 #define	LedB	 PTCD_PTCD2	
 #define	buffSCI  SCI2D		        // Buffer de datos del SCI
-#define	bitCtrl  APCTL1		        // Buffer de datos del SCI
+#define	CtrlADC  APCTL1		        // Buffer de datos del SCI
+#define	selecADC   ADCSC1_ADCH		// Buffer de datos del SCI
 
 //variables en RAM
 unsigned char flag_rx;              //Variable bandera de la interrupcion SCI_RX
-unsigned char i = 0;            //Variable para determinar que dato se va a enviar
-volatile unsigned char canal = 0;   //Variable para seleccionar el canal ADC
-volatile char sensorH[8];  //Arreglo para almacenar la parte alta de la conversión
-volatile char sensorL[8];  //Arreglo para almacenar la parte baja de la conversión
-
+//unsigned char i;                  //Variable para determinar que dato se va a enviar
+volatile unsigned char canal;       //Variable para seleccionar el canal ADC
+volatile char sensorH[8];           //Arreglo para almacenar la parte alta de la conversión
+volatile char sensorL[8];           //Arreglo para almacenar la parte baja de la conversión
+volatile char enviarLectura;        //Funciona como booleano
+volatile unsigned char i;
 //Constantes  
 
-unsigned const time=10;				//Constante en ROM que determina el numero de ciclos del retardo
+unsigned const time=1000;				//Constante en ROM que determina el numero de ciclos del retardo
 
 //Prototipos de funciones
 
@@ -60,69 +62,79 @@ void setPrograma()					// Inicializacion del Programa
 // MODULO SCI
 void setSCI()
 {
+	SCGC1_SCI2 = 1;   //Activar Bus Clock para el módulo SCI2
     SCI2BDH = 0;      //Modulo divisor =0
-    SCI2BDL = 15;     // 19600 Baud Rate 
+    SCI2BDL = 16;     // 19600 Baud Rate
+    //SCI2BDL = 15;      
     SCI2C1 = 0x00;    // Operacion normal modo 8 bits
     SCI2C2_TE = 1;    //Activar transmisión
     SCI2C2_RE = 1;    //Activar recepción
     SCI2C2_RIE = 1;   //Interrupción Rx
 } 
 
-void SCI_send(char dato)
-{
-    while(SCI2S1_TDRE == 0);
-    buffSCI = dato;
-    return;
+interrupt VectorNumber_Vsci2rx void sci_rx(){   
+    flag_rx=SCI2S1_RDRF;  
+    if(buffSCI == 'T'){
+    	enviarLectura=1;
+    	canal=0;
+    	i=0;
+    	SCI_send ('S');
+    	retardo(time);
+    	//if(buffSCI == 'F')
+    }else{
+    	enviarLectura=0;
+    	canal=0;
+    	i=0;
+    }
 }
+
+
 
 // MODULO ADC
 void setADC()
 {
+	SCGC1_ADC = 1;        //Activar Bus Clock para el módulo ADC
     ADCSC1_AIEN=1;        //Habilitar Interrupción
-    ADCSC1_ADCO=1;        //Conversión continua desactivada
-    ADCSC1_ADCO=0;        //Inicia en canal 0
+    ADCSC1_ADCO=0;        //Conversión continua activada
+    selecADC=0b11111;     //Ningún canal activo  
     ADCSC2_ADTRG=0;       //Conversión activada por software
+    ADCSC2_ACFE=0;
+    ADCSC2_ACFGT=0;
     ADCCFG_ADLPC=0;       //Alta velocidad
-    ADCCFG_ADIV=0b00;     //divisor=1
-    ADCCFG_ADLSMP=0;      //tiempo corto de muestreo (maximizar velocidad de conversión)
-    ADCCFG_ADLSMP=0b01;   //N=12 bits
+    ADCCFG_ADIV=0b00;     //divisor=1   
+    ADCCFG_MODE=0b01;     //N=12 bits
     ADCCFG_ADICLK=0b00;   //input clk = bus clk
-    bitCtrl=1;            //Activar control canal AD0
-    ADCSC1_ADCH=0b11111;  //Ningún canal activo    
+    CtrlADC=0xff;         //Inicializar bits de control          
 }
 
 interrupt VectorNumber_Vadc void ADC_ISR() 	//interrupción generada cuando se completa una conversión 
-{      
-    ADCSC1_ADCH=canal;    //Seleccionar canal 
-    sensorL[canal]=ADCRL; //Almacenar parte baja del dato 
-    sensorH[canal]=ADCRH; //Almacenar parte alta del dato 
-	canal++;              //Cambiar de canal	
-	if(canal==8){         //si ya leyó los 8 canales
-		canal=0;          //regrese al primer canal
-		bitCtrl=0;    
-	}	
+{  
+    sensorH[canal]=ADCRH; //Almacenar parte baja del dato 
+    sensorL[canal]=ADCRL; //Almacenar parte alta del dato         
 }
-
 void main(void) 
-{
+{   
 	setPrograma();					// Inicializa las variables y parametros del programa
 	setSCI();                       // Inicializa SCI
 	setADC();                       // Inicializa ADC
-	
-	for (;;)                      
+	enviarLectura=0;
+	for (;;) 	
 	/* please make sure that you never leave main */
 	{  //Siempre mostrar  los datos 
-		APCTL1=APCTL1<<1;                //Activar control canal siguiente		
+		selecADC=0;           // Activar Canal 0 Interrupción
+		i=0;	
+		if(enviarLectura){
 		while(i<8){
-			SCI_send(50);
 			SCI_send(sensorH[i]); //transmitir parte alta del dato
 			retardo(time);
 			SCI_send(sensorL[i]); //transmitir parte baja del dato	
+			retardo(time);
 			i++;
-		}		
-		i=0;
-		SCI_send(10);             //enviar cambio de línea
-		retardo(time);
+			canal++;
+			selecADC++;
+		}	
+		    canal=0;
+		}
 	} 	
 }
 
@@ -141,3 +153,9 @@ void retardo(unsigned short max)
 
 //envio de datos por SCI
 
+void SCI_send(char dato)
+{
+    while(SCI2S1_TDRE == 0);
+    buffSCI = dato;
+    return;
+}
