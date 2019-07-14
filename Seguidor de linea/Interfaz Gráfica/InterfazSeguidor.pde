@@ -28,17 +28,23 @@ int contador = 0;
 int j=0;
 boolean recibir=false;
 
-int[] inMotor = new int[2];
-int[] inMotorAux = new int[4];
+int[] velAngMotor = new int[2]; 
+int[] velAngMotorAux = new int[4];
 
 int valueMotorL = 0;
 int valueMotorR = 0;
 int auxL = 0;
 int auxR = 255;
+
+
 //_______________________________________________________________________________________
 
 void setup(){
   
+  
+velAngMotor[0]= 25; 
+velAngMotor[1]= 25; 
+
   size(1620,912);
   control = new ControlP5(this);
   botonIniciar = control.addBang("Iniciar").setPosition(60,40).setSize(80, 47)
@@ -243,25 +249,25 @@ void draw(){
   
   // velocidad Angular    
 
-  valueMotorL = int(map(inMotor[0],0,80,0,255)); 
+  valueMotorL = int(map(velAngMotor[0],0,80,0,255)); 
   // Display the new sensor value.
   m.updateMeter(valueMotorL);
   
   delay(10); // Allow time to see the change.  
   
   textSize(16);
-  text(valueMotorL,270,520);
+  text(velAngMotor[0],270,520);
  
  //______________________________________________________________________________________________
   
 /************************* GRAFICOS VELOCIDADES MOTOR DERECHO *********************************/
  
-  valueMotorR = int(map(inMotor[1],0,80,0,255)); 
+  valueMotorR = int(map(velAngMotor[1],0,80,0,255)); 
   // Display the new sensor value.
   m1.updateMeter(valueMotorR);
   delay(10); // Allow time to see the change. 
   textSize(16);
-  text(valueMotorR,1370,520);  
+  text(velAngMotor[1],1370,520);  
   
 
 //______________________________________________________________________________________________
@@ -330,7 +336,7 @@ void serialEvent(Serial puerto) {
      sensor[canal]=sensorAux[contador-1];
      sensor[canal]=sensor[canal]<<8;
      sensor[canal]+=sensorAux[contador];
-     println(canal,":",sensor[canal]);  
+     //println(canal,":",sensor[canal]);  
      /*Ciclo para tomar muestras (calibración sensores)*/
      if(j==10){
        Parar();
@@ -384,7 +390,7 @@ void serialEvent(Serial puerto) {
      if(contador==20){
        errorAux[1]=puerto.read();
        //println("parte baja",errorAux[1]);
-       contador=-1;
+       //contador=-1;
      } 
      errorPos=errorAux[0];     
      errorPos=errorPos<<8;
@@ -396,4 +402,18 @@ void serialEvent(Serial puerto) {
      contador++;
   } 
   
+    /**********************  Recepción de Velocidad Angular **********************/
+
+  if(puerto.available()>0 & contador<23 & recibir){ 
+     if(contador==21){
+       velAngMotor[0]=puerto.read();       
+       println("MotorL",velAngMotor[0]);
+     } 
+     if(contador==22){
+       velAngMotor[1]=puerto.read();
+       println("MotorR",velAngMotor[1]);
+       contador=-1;     
+     }   
+     contador++;
+  }   
 } 
